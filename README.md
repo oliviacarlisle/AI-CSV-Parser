@@ -49,6 +49,24 @@ import { parseAndLogCsv } from './dist/index.js';
 const cleanData = await parseAndLogCsv('path/to/your/file.csv');
 ```
 
+### CSV Generation
+
+The project includes a utility for generating random CSV files for testing:
+
+```bash
+# Generate a CSV file with 10000 rows
+npm run generate-csv 10000
+```
+
+This will create CSV files with random:
+- Names
+- Ages (18-90)
+- Email addresses
+- Physical addresses (with proper formatting for street, city, state, and zip)
+- Phone numbers (in various formats, perfect for testing the AI cleaning)
+
+Each row is approximately 100 bytes in size.
+
 ### OpenAI Integration
 
 The parser uses OpenAI's API to clean data. To use this feature:
