@@ -33,10 +33,11 @@ A AI-powered streaming CSV parser library for Node.js written in TypeScript. Des
 
 ```bash
 # Basic usage with default files
+npm install
 npm start
 
 # Specify input and output files
-npm start -- path/to/your/input.csv path/to/your/output.json
+npm start -- path/input.csv path/output.json
 ```
 
 Or programmatically:
@@ -65,7 +66,7 @@ This will create CSV files with random:
 - Physical addresses (with proper formatting for street, city, state, and zip)
 - Phone numbers (in various formats, perfect for testing the AI cleaning)
 
-Each row is approximately 100 bytes in size.
+> Note: Each row is approximately 95–100 bytes in size, on average.
 
 ### OpenAI Integration
 

@@ -146,12 +146,25 @@ async function postProcessRows(rows: Record<string, string>[]) {
     addresses.push(cleanAddress(row.address));
   }
 
+  const startTime = Date.now();
   const phoneResponse = await Promise.all(phoneNumbers);
   const addressResponse = await Promise.all(addresses);
+  const endTime = Date.now();
+  const elapsedTime = (endTime - startTime) / 1000;
+  console.log(`Time taken: ${elapsedTime} seconds`);
+  console.log(`Rows Processed: ${phoneNumbers.length}`);
+
+  const totalPromptTokens = phoneResponse.reduce((acc, curr) => acc + (curr?.promptTokens ?? 0), 0) + addressResponse.reduce((acc, curr) => acc + (curr?.promptTokens ?? 0), 0);
+  const totalCompletionTokens = phoneResponse.reduce((acc, curr) => acc + (curr?.completionTokens ?? 0), 0) + addressResponse.reduce((acc, curr) => acc + (curr?.completionTokens ?? 0), 0);
+  console.log(`Total prompt tokens: ${totalPromptTokens}`);
+  console.log(`Total completion tokens: ${totalCompletionTokens}`);
+
+  console.log('TPM: ', (totalPromptTokens + totalCompletionTokens) / elapsedTime * 60);
+  console.log('RPM: ', (phoneNumbers.length + addresses.length) / elapsedTime * 60);
 
   const processedRows = rows.map((row, index) => {
     delete row.address;
-    return { ...row, ...addressResponse[index], ...phoneResponse[index] };
+    return { ...row, ...addressResponse[index]?.cleanedDataAddress, ...phoneResponse[index]?.cleanedDataPhone };
   });
 
   return processedRows;
@@ -187,8 +200,15 @@ async function cleanPhoneNumber(phoneNumber: string) {
 
   try {
     const content = response.choices[0].message.content || '{"phone": null}';
-    const cleanedData = JSON.parse(content);
-    return cleanedData;
+    // Log token usage for this request
+    const tokensUsed = response.usage;
+    // console.log(`Phone number cleaning tokens:
+    //   Input: ${tokensUsed?.prompt_tokens}
+    //   Output: ${tokensUsed?.completion_tokens} 
+    //   Cached: ${tokensUsed?.prompt_tokens_details?.cached_tokens || 0}
+    //   Total: ${tokensUsed?.total_tokens}`);
+    const cleanedDataPhone = JSON.parse(content);
+    return { cleanedDataPhone, promptTokens: tokensUsed?.prompt_tokens, completionTokens: tokensUsed?.completion_tokens };
   } catch (error) {
     console.error('Error parsing JSON response from OpenAI:', error);
   }
@@ -238,8 +258,14 @@ async function cleanAddress(address: string) {
 
   try {
     const content = response.choices[0].message.content || '{"streetAddress": null, "city": null, "state": null, "zipCode": null}';
-    const cleanedData = JSON.parse(content);
-    return cleanedData;
+    const cleanedDataAddress = JSON.parse(content);
+    const tokensUsed = response.usage;
+    // console.log(`Address cleaning tokens:
+    //   Input: ${tokensUsed?.prompt_tokens}
+    //   Output: ${tokensUsed?.completion_tokens} 
+    //   Cached: ${tokensUsed?.prompt_tokens_details?.cached_tokens || 0}
+    //   Total: ${tokensUsed?.total_tokens}`);
+    return { cleanedDataAddress, promptTokens: tokensUsed?.prompt_tokens, completionTokens: tokensUsed?.completion_tokens };
   } catch (error) {
     console.error('Error parsing JSON response from OpenAI:', error);
   }
