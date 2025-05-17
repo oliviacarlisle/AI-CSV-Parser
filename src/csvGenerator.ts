@@ -9,38 +9,89 @@ const __dirname = path.dirname(__filename);
  * Generates a large CSV file with random data
  * @param numLines Number of rows to generate
  * @param outputPath Optional custom output path
+ * @param batchSize Number of rows to process in each batch (default: 10000)
  * @returns Path to the generated file
  */
-export function generateLargeCsv(numLines: number, outputPath?: string): string {
-  const filePath = outputPath || path.join(process.cwd(), `random_data_${numLines}_rows.csv`);
-  
-  // CSV header
-  const header = 'name,age,email,address,phone\n';
-  
-  // Open write stream
-  const writeStream = fs.createWriteStream(filePath);
-  writeStream.write(header);
-  
-  // Generate random data
-  for (let i = 0; i < numLines; i++) {
-    const name = generateRandomName();
-    const age = generateRandomAge();
-    const email = generateRandomEmail(name);
-    const address = generateRandomAddress();
-    const phone = generateRandomPhoneNumber();
+export function generateLargeCsv(
+  numLines: number, 
+  outputPath?: string, 
+  batchSize: number = 100000
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const filePath = outputPath || path.join(process.cwd(), `random_data_${numLines}_rows.csv`);
     
-    const line = `${name},${age},${email},"${address}","${phone}"\n`;
-    writeStream.write(line);
+    // CSV header
+    const header = 'name,age,email,address,phone\n';
     
-    // Log progress for large files
-    if (numLines > 10000 && i % 10000 === 0) {
-      console.log(`Generated ${i} rows...`);
+    // Open write stream
+    const writeStream = fs.createWriteStream(filePath);
+    writeStream.write(header);
+    
+    let rowsWritten = 0;
+    let isWriting = false;
+    
+    // Process function to handle batches
+    function processBatch() {
+      if (rowsWritten >= numLines) {
+        // We're done
+        writeStream.end();
+        console.log(`CSV file with ${numLines} rows generated at: ${filePath}`);
+        resolve(filePath);
+        return;
+      }
+      
+      if (isWriting) {
+        // Wait for current write to finish
+        return;
+      }
+      
+      isWriting = true;
+      let batch = '';
+      const batchEnd = Math.min(rowsWritten + batchSize, numLines);
+      
+      // Generate the current batch
+      for (let i = rowsWritten; i < batchEnd; i++) {
+        const name = generateRandomName();
+        const age = generateRandomAge();
+        const email = generateRandomEmail(name);
+        const address = generateRandomAddress();
+        const phone = generateRandomPhoneNumber();
+        
+        batch += `${name},${age},${email},"${address}","${phone}"\n`;
+      }
+      
+      // Log progress for large files
+      if (numLines > 100000 && (batchEnd % 1000000 === 0 || batchEnd === numLines)) {
+        console.log(`Generated ${batchEnd} rows...`);
+      }
+      
+      // Check if the stream can accept more data
+      const canContinue = writeStream.write(batch);
+      rowsWritten = batchEnd;
+      
+      // If the buffer is full, wait for it to drain
+      if (!canContinue) {
+        isWriting = false;
+        writeStream.once('drain', () => {
+          isWriting = false;
+          processBatch();
+        });
+      } else {
+        // Continue with the next batch
+        isWriting = false;
+        // Use setImmediate to prevent call stack overflow
+        setImmediate(processBatch);
+      }
     }
-  }
-  
-  writeStream.end();
-  console.log(`CSV file with ${numLines} rows generated at: ${filePath}`);
-  return filePath;
+    
+    // Handle errors
+    writeStream.on('error', (err) => {
+      reject(err);
+    });
+    
+    // Start processing
+    processBatch();
+  });
 }
 
 function generateRandomName(): string {
