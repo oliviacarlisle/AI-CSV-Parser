@@ -2,6 +2,16 @@ import { createReadStream } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Buffer } from 'node:buffer';
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
+import { writeFile } from 'node:fs/promises';
+
+// Load environment variables from .env file
+dotenv.config();
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 // Get current file's directory (ES module equivalent of __dirname)
 const __filename = fileURLToPath(import.meta.url);
@@ -42,7 +52,7 @@ function parseCsvLine(line: string): string[] {
 }
 
 // Main function to parse and log the CSV file
-async function parseAndLogCsv(filePath: string): Promise<void> {
+async function parseAndLogCsv(filePath: string): Promise<Record<string, string>[]> {
   const fullPath = resolve(__dirname, '..', filePath);
   
   // Create a readable stream with specified chunk size
@@ -55,7 +65,7 @@ async function parseAndLogCsv(filePath: string): Promise<void> {
   let chunksCount = 0;
   let headers: string[] = [];
   let isFirstChunk = true;
-
+  let processedRows: Record<string, string>[] = [];
   // Store incomplete line from previous buffer
   let remainderBuffer: Buffer = Buffer.alloc(0);
   
@@ -73,11 +83,11 @@ async function parseAndLogCsv(filePath: string): Promise<void> {
       console.log('Headers:', headers);
       
       // Process remaining lines in the first chunk (skip headers)
-      await processBlockOfLines(lines.slice(1), headers);
+      processedRows.push(...await processBlockOfLines(lines.slice(1), headers));
       isFirstChunk = false;
     } else {
       // Process all complete lines
-      await processBlockOfLines(lines, headers);
+      processedRows.push(...await processBlockOfLines(lines, headers));
     }
 
     // Save the remainder for next chunk
@@ -92,14 +102,18 @@ async function parseAndLogCsv(filePath: string): Promise<void> {
     const { lines } = splitLinesFromBuffer(remainderBuffer);
     console.log(`${lines.length} lines in chunk ${chunksCount}`);
 
-    await processBlockOfLines(lines, headers);
+    processedRows.push(...await processBlockOfLines(lines, headers));
     chunksCount++;
   }
 
   console.log(`Processed ${chunksCount} chunks`);
+
+  return processedRows;
 }
 
 async function processBlockOfLines(lines: string[], headers: string[]) {
+  const processedRows: Record<string, string>[] = [];
+
   for (const line of lines) {
     const values = parseCsvLine(line);
     
@@ -111,19 +125,126 @@ async function processBlockOfLines(lines: string[], headers: string[]) {
           row[header] = values[index];
         }
       });
-      console.log(row);
+      processedRows.push(row);
     } else {
-      console.log(values);
+      console.error('No headers found');
     }
   }
 
-  // Return a Promise that resolves after the timeout
-  return new Promise<void>(resolve => {
-    setTimeout(() => {
-      console.log('Done');
-      resolve();
-    }, 500);
+  const postAIProcessedRows = await postProcessRows(processedRows);
+
+  return postAIProcessedRows;
+}
+
+async function postProcessRows(rows: Record<string, string>[]) {
+  
+  const phoneNumbers = [];
+  const addresses = [];
+
+  for (const row of rows) {
+    phoneNumbers.push(cleanPhoneNumber(row.phone));
+    addresses.push(cleanAddress(row.address));
+  }
+
+  const phoneResponse = await Promise.all(phoneNumbers);
+  const addressResponse = await Promise.all(addresses);
+
+  const processedRows = rows.map((row, index) => {
+    delete row.address;
+    return { ...row, ...addressResponse[index], ...phoneResponse[index] };
   });
+
+  return processedRows;
+}
+
+async function cleanPhoneNumber(phoneNumber: string) {
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4.1-nano',
+    temperature: 0,
+    response_format: { 
+      type: "json_schema",
+      json_schema: {
+        name: "phone_number_response",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            phone: {
+              type: "string",
+              description: "The cleaned phone number in E.164 international format (e.g. +12125551234) or null if invalid"
+            }
+          },
+          required: ["phone"],
+          additionalProperties: false
+        }
+      }
+    },
+    messages: [
+      { role: 'system', content: 'You are a helpful assistant that cleans phone numbers. Format numbers as standardized E.164 international format when possible (e.g. +12125551234). If the number is invalid or cannot be parsed, return null for the phone field.' },
+      { role: 'user', content: `Clean this phone number: ${phoneNumber || ""}` }
+    ],
+  });
+
+  try {
+    const content = response.choices[0].message.content || '{"phone": null}';
+    const cleanedData = JSON.parse(content);
+    return cleanedData;
+  } catch (error) {
+    console.error('Error parsing JSON response from OpenAI:', error);
+  }
+
+  return null
+}
+
+async function cleanAddress(address: string) {
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4.1-nano',
+    temperature: 0,
+    response_format: { 
+      type: "json_schema",
+      json_schema: {
+        name: "address_response",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: {
+            streetAddress: {
+              type: ["string", "null"],
+              description: "The extracted street address (e.g. 123 Main St)"
+            },
+            city: {
+              type: ["string", "null"],
+              description: "The extracted city (e.g. San Francisco)"
+            },
+            state: {
+              type: ["string", "null"],
+              description: "The extracted state (e.g. CA)"
+            },
+            zipCode: {
+              type: ["string", "null"],
+              description: "The extracted zip code (e.g. 94101)"
+            }
+          },
+          required: ["streetAddress", "city", "state", "zipCode"],
+          additionalProperties: false
+        }
+      }
+    },
+    messages: [
+      { role: 'system', content: 'You are a helpful assistant that extracts information from addresses. Return the street address, city, state, and zip code in a JSON object. If any of the fields cannot be parsed, return null for that field.' },
+      { role: 'user', content: `Extract the street address, city, state, and zip code from the following address: ${address || ""}` }
+    ],
+  });
+
+  try {
+    const content = response.choices[0].message.content || '{"streetAddress": null, "city": null, "state": null, "zipCode": null}';
+    const cleanedData = JSON.parse(content);
+    return cleanedData;
+  } catch (error) {
+    console.error('Error parsing JSON response from OpenAI:', error);
+  }
+
+  return null;
 }
 
 // Modified function that returns both complete lines and remainder
@@ -178,6 +299,16 @@ function splitLinesFromBuffer(buffer: Buffer): {
 
 // Get file path from command line arguments or use default
 const filePath = process.argv[2] || 'samples/users.csv';
+// Get output file path from command line arguments or use default
+const outputFilePath = process.argv[3] || 'output.json';
 
 // Parse the file
-parseAndLogCsv(filePath);
+const processedRows = await parseAndLogCsv(filePath);
+
+// Write the processed rows to the output file
+try {
+  await writeFile(outputFilePath, JSON.stringify(processedRows, null, 2));
+  console.log(`Successfully wrote data to ${outputFilePath}`);
+} catch (error) {
+  console.error(`Error writing to file: ${error}`);
+}
