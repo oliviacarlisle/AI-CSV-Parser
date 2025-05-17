@@ -1,8 +1,8 @@
 # CSV-Parser
 
-A AI-powered streaming CSV parser library for Node.js written in TypeScript. Designed to efficiently process and tranform large CSV files using AI without loading the entire dataset into memory.
+A AI-powered streaming CSV parser library for Node.js written in TypeScript. Designed to efficiently process and transform large CSV files using AI without loading the entire dataset into memory.
 
-** Note: this is a prototype/work in progress, not for production use **
+> **⚠️ Note:** This is a prototype/work in progress, not for production use
 
 ## Features
 
