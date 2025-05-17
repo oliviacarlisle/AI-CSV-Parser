@@ -1,0 +1,102 @@
+[
+  {
+    "name": "Ashley Campbell",
+    "age": "22",
+    "email": "ashley.campbell@outlook.com",
+    "phone": "+16688640751",
+    "streetAddress": "1119 Church St",
+    "city": "Jacksonville",
+    "state": "FL",
+    "zipCode": "64406"
+  },
+  {
+    "name": "Thomas Adams",
+    "age": "85",
+    "email": "thomas.adams@example.com",
+    "phone": "+15701228759",
+    "streetAddress": "9080 College St",
+    "city": "Denver",
+    "state": "CO",
+    "zipCode": "17491"
+  },
+  {
+    "name": "Matthew Edwards",
+    "age": "57",
+    "email": "matthew.edwards@yahoo.com",
+    "phone": "+1536415337",
+    "streetAddress": "4225 Pine St",
+    "city": "Columbus",
+    "state": "OH",
+    "zipCode": "86866"
+  },
+  {
+    "name": "Kevin White",
+    "age": "31",
+    "email": "kevin.white51@outlook.com",
+    "phone": "+11466103974",
+    "streetAddress": "9981 Pine St",
+    "city": "San Diego",
+    "state": "CA",
+    "zipCode": "57433"
+  },
+  {
+    "name": "Margaret Sanchez",
+    "age": "58",
+    "email": "margaret.sanchez@outlook.com",
+    "phone": "+19825587657",
+    "streetAddress": "1397 Ridge Rd",
+    "city": "Boston",
+    "state": "MA",
+    "zipCode": "26793"
+  },
+  {
+    "name": "Carol Phillips",
+    "age": "24",
+    "email": "carol.phillips@hotmail.com",
+    "phone": "+1744138685",
+    "streetAddress": "6132 Madison Ave",
+    "city": "Austin",
+    "state": "TX",
+    "zipCode": "99827"
+  },
+  {
+    "name": "Daniel Mitchell",
+    "age": "45",
+    "email": "daniel.mitchell@example.com",
+    "phone": "+18918524224",
+    "streetAddress": "5455 Sunset Dr",
+    "city": "Austin",
+    "state": "TX",
+    "zipCode": "47461"
+  },
+  {
+    "name": "Brian Carter",
+    "age": "48",
+    "email": "brian.carter@gmail.com",
+    "phone": "+13169994653",
+    "streetAddress": "1371 Lincoln Ave",
+    "city": "San Francisco",
+    "state": "CA",
+    "zipCode": "85909"
+  },
+  {
+    "name": "Mary Rodriguez",
+    "age": "76",
+    "email": "mary.rodriguez@yahoo.com",
+    "phone": "+15088429147",
+    "streetAddress": "8286 Lake St",
+    "city": "Los Angeles",
+    "state": "CA",
+    "zipCode": "17453"
+  },
+  {
+    "name": "Donald Harris",
+    "age": "48",
+    "email": "donald.harris@icloud.com",
+    "phone": "+16509630144",
+    "streetAddress": "6456 Madison Ave",
+    "city": "San Jose",
+    "state": "CA",
+    "zipCode": "37628"
+  }
+]
