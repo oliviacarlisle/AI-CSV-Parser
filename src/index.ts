@@ -126,6 +126,8 @@ async function parseAndLogCsv(filePath: string): Promise<Record<string, string>[
   console.log(`Total output tokens: ${outputTokens}`);
   console.log(`Total tokens: ${inputTokens + outputTokens}`);
 
+  // TODO: Flush reamining processed rows to file
+
   return processedRows;
 }
 
