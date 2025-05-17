@@ -22,7 +22,7 @@ const DELIMITER = ',';
 const QUOTE = '"';
 const NEWLINE = '\n';
 const CARRIAGE_RETURN = '\r';
-const CHUNK_SIZE = 4 * 2 ** 20; // 4MB
+const CHUNK_SIZE = 4096; // 4KB
 const ENCODING = 'utf8';
 
 const LF = NEWLINE.charCodeAt(0);
@@ -63,6 +63,8 @@ async function parseAndLogCsv(filePath: string): Promise<Record<string, string>[
   });
 
   let chunksCount = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
   let headers: string[] = [];
   let isFirstChunk = true;
   let processedRows: Record<string, string>[] = [];
@@ -81,13 +83,20 @@ async function parseAndLogCsv(filePath: string): Promise<Record<string, string>[
     if (isFirstChunk && lines.length > 0) {
       headers = parseCsvLine(lines[0]);
       console.log('Headers:', headers);
+
+      const { processedRows: rows, totalPromptTokens, totalCompletionTokens } = await processBlockOfLines(lines.slice(1), headers);
       
       // Process remaining lines in the first chunk (skip headers)
-      processedRows.push(...await processBlockOfLines(lines.slice(1), headers));
+      processedRows.push(...rows);
       isFirstChunk = false;
+      inputTokens += totalPromptTokens;
+      outputTokens += totalCompletionTokens;
     } else {
       // Process all complete lines
-      processedRows.push(...await processBlockOfLines(lines, headers));
+      const { processedRows: rows, totalPromptTokens, totalCompletionTokens } = await processBlockOfLines(lines, headers);
+      processedRows.push(...rows);
+      inputTokens += totalPromptTokens;
+      outputTokens += totalCompletionTokens;
     }
 
     // Save the remainder for next chunk
@@ -95,6 +104,8 @@ async function parseAndLogCsv(filePath: string): Promise<Record<string, string>[
 
     // Increment chunks count
     chunksCount++;
+
+    // TODO: Flush processed rows to file
   }
 
   // Don't forget to process the last line if there's anything left in remainder
@@ -102,11 +113,18 @@ async function parseAndLogCsv(filePath: string): Promise<Record<string, string>[
     const { lines } = splitLinesFromBuffer(remainderBuffer);
     console.log(`${lines.length} lines in chunk ${chunksCount}`);
 
-    processedRows.push(...await processBlockOfLines(lines, headers));
+    const { processedRows: rows, totalPromptTokens, totalCompletionTokens } = await processBlockOfLines(lines, headers);
+
+    processedRows.push(...rows);
+    inputTokens += totalPromptTokens;
+    outputTokens += totalCompletionTokens;
     chunksCount++;
   }
 
   console.log(`Processed ${chunksCount} chunks`);
+  console.log(`Total input tokens: ${inputTokens}`);
+  console.log(`Total output tokens: ${outputTokens}`);
+  console.log(`Total tokens: ${inputTokens + outputTokens}`);
 
   return processedRows;
 }
@@ -136,7 +154,7 @@ async function processBlockOfLines(lines: string[], headers: string[]) {
   return postAIProcessedRows;
 }
 
-async function postProcessRows(rows: Record<string, string>[]) {
+async function postProcessRows(rows: Record<string, string>[]): Promise<{ processedRows: Record<string, string>[], totalPromptTokens: number, totalCompletionTokens: number }> {
   
   const phoneNumbers = [];
   const addresses = [];
@@ -167,7 +185,7 @@ async function postProcessRows(rows: Record<string, string>[]) {
     return { ...row, ...addressResponse[index]?.cleanedDataAddress, ...phoneResponse[index]?.cleanedDataPhone };
   });
 
-  return processedRows;
+  return { processedRows, totalPromptTokens, totalCompletionTokens };
 }
 
 async function cleanPhoneNumber(phoneNumber: string) {
@@ -193,7 +211,7 @@ async function cleanPhoneNumber(phoneNumber: string) {
       }
     },
     messages: [
-      { role: 'system', content: 'You are a helpful assistant that cleans phone numbers. Format numbers as standardized E.164 international format when possible (e.g. +12125551234). If the number is invalid or cannot be parsed, return null for the phone field.' },
+      { role: 'system', content: 'You are a helpful assistant that cleans phone numbers. Format numbers as standardized E.164 international format when possible (e.g. +12125551234). Assume all numbers are US numbers. If the number is invalid or cannot be parsed, return null for the phone field.' },
       { role: 'user', content: `Clean this phone number: ${phoneNumber || ""}` }
     ],
   });
@@ -329,7 +347,11 @@ const filePath = process.argv[2] || 'samples/users.csv';
 const outputFilePath = process.argv[3] || 'output.json';
 
 // Parse the file
+const startTime = Date.now();
 const processedRows = await parseAndLogCsv(filePath);
+const endTime = Date.now();
+const elapsedTime = (endTime - startTime) / 1000;
+console.log(`Time taken: ${elapsedTime} seconds`);
 
 // Write the processed rows to the output file
 try {

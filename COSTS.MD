@@ -2,7 +2,7 @@
 
 ### Rate Limits
 
-Benchmarked with Tier 4 Access
+Tested with Tier 4 Access
 
 | Tier   | RPM   | TPM       |
 |--------|-------|-----------|
