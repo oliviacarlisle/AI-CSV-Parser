@@ -16,6 +16,19 @@ A AI-powered streaming CSV parser library for Node.js written in TypeScript. Des
   - Clean and format phone numbers to E.164 international format
   - Parse and structure addresses into components (street, city, state, zip)
 
+> 🚀 **Why GPT-4.1 nano?**  
+> GPT-4.1 nano is specifically chosen for its exceptional cost-efficiency and ultra-low latency. This makes it ideal for cleaning and structuring CSV data on the fly, providing AI-powered transformations without the high costs or latency typically associated with larger language models.
+
+## Performance Optimizations
+
+- **Parallel Processing**: Each chunk of CSV data is processed concurrently using `Promise.all()`
+- **Batched API Calls**: All rows in a chunk are sent to GPT-4.1 nano simultaneously to minimize API latency
+- **Stream Processing**: Data is processed in chunks to maintain constant memory usage regardless of file size
+- **Efficient Tokenization**: CSV rows are pre-processed to minimize token usage in API calls
+
+> 💡 **Performance Impact**  
+> By processing all rows in a chunk in parallel, we achieve exponentially faster processing compared to sequential processing. Benchmarks coming soon.
+
 ## Usage
 
 ```bash
